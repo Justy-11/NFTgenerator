@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFT Viewer</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .filters, .results { margin: 20px; }
+        .nft-img { width: 150px; height: 150px; object-fit: cover; margin: 10px; }
+    </style>
+</head>
+<body>
+    <h2>NFT Collection Viewer</h2>
+    <div class="filters">
+        <h3>Filter by Traits</h3>
+        <div id="filters-container"></div>
+        <button onclick="applyFilters()">Apply Filters</button>
+    </div>
+    
+    <h3>Total NFTs per Trait</h3>
+    <div id="trait-counts"></div>
+    
+    <h3>Filtered NFTs</h3>
+    <div id="results" class="results"></div>
+    
+    <script>
+        let nftData = [];
+        let traitCounts = {};
+
+        async function loadNFTData() {
+            for (let i = 0; i < 100; i++) { // Adjust based on your NFT count
+                try {
+                    let response = await fetch(`output_nfts/${i}.json`);
+                    let data = await response.json();
+                    nftData.push(data);
+                    countTraits(data);
+                } catch (error) {
+                    console.error("Error loading NFT metadata", error);
+                }
+            }
+            displayTraitCounts();
+            generateFilters();
+        }
+
+        function countTraits(nft) {
+            nft.attributes.forEach(attr => {
+                if (!traitCounts[attr.trait_type]) traitCounts[attr.trait_type] = {};
+                if (!traitCounts[attr.trait_type][attr.value]) traitCounts[attr.trait_type][attr.value] = 0;
+                traitCounts[attr.trait_type][attr.value]++;
+            });
+        }
+
+        function displayTraitCounts() {
+            let html = "";
+            for (let type in traitCounts) {
+                html += `<h4>${type}</h4>`;
+                for (let trait in traitCounts[type]) {
+                    html += `${trait}: ${traitCounts[type][trait]}<br>`;
+                }
+            }
+            document.getElementById("trait-counts").innerHTML = html;
+        }
+
+        function generateFilters() {
+            let html = "";
+            for (let type in traitCounts) {
+                html += `<label>${type}: <select id="filter-${type}"><option value="">Any</option>`;
+                for (let trait in traitCounts[type]) {
+                    html += `<option value="${trait}">${trait}</option>`;
+                }
+                html += `</select></label><br>`;
+            }
+            document.getElementById("filters-container").innerHTML = html;
+        }
+
+        function applyFilters() {
+            let filters = {};
+            document.querySelectorAll(".filters select").forEach(select => {
+                if (select.value) filters[select.id.replace("filter-", "")] = select.value;
+            });
+
+            let results = nftData.filter(nft => {
+                return Object.entries(filters).every(([key, value]) =>
+                    nft.attributes.some(attr => attr.trait_type === key && attr.value === value)
+                );
+            });
+
+            displayResults(results);
+        }
+
+        function displayResults(nfts) {
+            let html = "";
+            nfts.forEach(nft => {
+                html += `<img src="${nft.image}" class="nft-img">`;
+            });
+            document.getElementById("results").innerHTML = html || "No matching NFTs found";
+        }
+
+        loadNFTData();
+    </script>
+</body>
+</html>
